@@ -6,6 +6,7 @@ import pyqtgraph as pg
 import numpy as np
 
 # comment
+# comment2
 
 class Plot2dWidget(pg.GraphicsLayoutWidget):
     def __init__(self, *args):
