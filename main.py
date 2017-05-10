@@ -5,7 +5,7 @@ from PyQt4 import QtGui, QtCore
 import pyqtgraph as pg
 import numpy as np
 
-
+# comment
 
 class Plot2dWidget(pg.GraphicsLayoutWidget):
     def __init__(self, *args):
