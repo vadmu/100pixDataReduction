@@ -6,10 +6,10 @@ from PyQt4 import QtGui, QtCore
 import pyqtgraph as pg
 import numpy as np
 import h5py
+from functions import CalibratePeaks
 
 class coolWidget(QtGui.QGroupBox):
     setActiveSignal = QtCore.pyqtSignal()
-    enableNextSignal = QtCore.pyqtSignal()
     def __init__(self):
         QtGui.QGroupBox.__init__(self)
         self.setMouseTracking(True)        
@@ -39,6 +39,7 @@ class coolWidget(QtGui.QGroupBox):
                           
 
 class LoadFileWidget(coolWidget):
+    fileLoaded = QtCore.pyqtSignal()
     def __init__(self):
         coolWidget.__init__(self)
         self.openFileButton = QtGui.QPushButton("Open File") 
@@ -111,12 +112,14 @@ class LoadFileWidget(coolWidget):
                         self.scansList.append(int(i[4:]))
                         
                 if self.scansList:
+                    scan = [i for i in f.keys() if i[:4] == 'scan'][self.lastScanIndex%(len(self.scansList))]
+                    print scan
                     self.lineScan.setValue(self.scansList[self.lastScanIndex%(len(self.scansList))])
-                    self.data100pix = self.getDataByPath(f[i], self.line100pix.text())
-                    self.dataEnergy = self.getDataByPath(f[i], self.lineEnergy.text())
-                    self.dataI0 = self.getDataByPath(f[i], self.lineI0.text())
-                    self.enableNextSignal.emit()
-                    print fname, "loaded"
+                    self.data100pix = self.getDataByPath(f[scan], self.line100pix.text())
+                    self.dataEnergy = self.getDataByPath(f[scan], self.lineEnergy.text())
+                    self.dataI0 = self.getDataByPath(f[scan], self.lineI0.text())
+                    self.fileLoaded.emit()
+                    print fname, "- scan %d"%self.lineScan.value(), "loaded"
                 
     def getDataByPath(self, item, path):        
         for j in path.split("/"):
@@ -165,31 +168,67 @@ class XASWidget(coolWidget):
         self.setLayout(self.layout)  
         
         
-class Plot2dWidget(pg.GraphicsLayoutWidget):
-    def __init__(self, *args):
-        pg.GraphicsLayoutWidget.__init__(self, *args)
-        self.view = self.addViewBox()
-        self.view.setAspectLocked(True)
-        self.img = pg.ImageItem(border='w')
-        self.view.addItem(self.img)
+class Plot2dWidget(QtGui.QWidget):
+    def __init__(self):
+        QtGui.QWidget.__init__(self)
+        pg.setConfigOption('background', 'w')
+        self.view = pg.GraphicsView()
+        self.vb = pg.ViewBox(border='w')
+#        self.img = pg.ImageItem()
+#        self.view.setAspectLocked(True)
+        self.view.setCentralItem(self.vb)
+        self.histWidget = pg.HistogramLUTWidget()
+        self.histWidget.item.gradient.loadPreset('bipolar')
+        self.energySpinBox = QtGui.QSpinBox()
+        self.energySpinBox.setMinimum(1)
+        self.energySpinBox.setMaximum(1)
+        self.energySpinBox.valueChanged.connect(self.setImage)
         
-    def setImage(self, img):
-        self.img.setImage(img)
+#        self.view.addItem(self.img)
+        self.layout = QtGui.QGridLayout() 
+        self.layout.addWidget(self.view,0, 0)
+        self.layout.addWidget(self.histWidget,0 ,1)
+        self.layout.addWidget(self.energySpinBox,1 ,1)
+        self.layout.setSpacing(0)
+        self.setLayout(self.layout)
+    
+    def setData(self, data):
+        self.data = data
+        self.img = pg.ImageItem(self.data[0].T, border='w')
+        self.vb.addItem(self.img)
+#        self.vb.autoRange()
+        self.energySpinBox.setMaximum(len(self.data))
+        self.histWidget.setImageItem(self.img)
+        self.histWidget.item.fillHistogram(False)
+        self.minLevel = 0
+        self.maxLevel = max([d.max() for d in data])
+        self.histWidget.item.setHistogramRange(0, self.maxLevel)
+        self.setImage(1)        
+        self.histWidget.item.sigLevelChangeFinished.connect(self.changeLevels)
+    
+    def setImage(self, index):
+        self.img.setImage(self.data[index - 1].T, autoLevels=False, levels = [self.minLevel, self.maxLevel])
+#        self.histWidget.setImageItem(self.img)
+#        self.histWidget.item.imageChanged()
+
+    def changeLevels(self):
+        self.minLevel, self.maxLevel = self.histWidget.item.getLevels()
+        self.img.setLevels([self.minLevel, self.maxLevel])
+        
 
         
 class MainWindow(QtGui.QWidget):
     def __init__(self):
         QtGui.QWidget.__init__(self)
-
         self.setGeometry(200, 50, 1200, 800)
         self.setWindowTitle('Data Reduction 100pixHPGe')
-        self.plot = Plot2dWidget() 
+        self.plotWidget = Plot2dWidget() 
         self.loadFileWidget = LoadFileWidget()
         self.calibrationWidget = CalibrationWidget()
         self.rejectionWidget = RejectionWidget()
         self.roiWidget = ROIWidget()
         self.xasWidget = XASWidget()                    
-        self.layoutV = QtGui.QVBoxLayout()        
+        self.layoutV = QtGui.QVBoxLayout()  
         self.layoutV.addWidget(self.loadFileWidget)
         self.layoutV.addWidget(self.calibrationWidget)
         self.layoutV.addWidget(self.rejectionWidget)
@@ -197,18 +236,18 @@ class MainWindow(QtGui.QWidget):
         self.layoutV.addWidget(self.xasWidget)
         self.layoutH = QtGui.QHBoxLayout()
         self.layoutH.addLayout(self.layoutV)
-        self.layoutH.addWidget(self.plot)     
+        self.layoutH.addWidget(self.plotWidget)     
         self.setLayout(self.layoutH)
         self.activeTabIndex = 0
         self.tabsList = [self.loadFileWidget, self.calibrationWidget, self.rejectionWidget, self.roiWidget, self.xasWidget]
-        for tab in self.tabsList:
-            tab.setActiveSignal.connect(self.setActiveTab)
-            tab.enableNextSignal.connect(self.enableNext)
-
         
-    def openFile(self):
-        image = np.random.randint(1024, size=(1000, 500))
-        self.plot.setImage(image)
+        self.loadFileWidget.fileLoaded.connect(self.onFileLoad)
+        
+        self.plotWidget.setSizePolicy(QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum))
+        for tab in self.tabsList:
+            tab.setMinimumWidth(500)
+            tab.setSizePolicy(QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Minimum))
+            tab.setActiveSignal.connect(self.setActiveTab)
         
     def setActiveTab(self):
         newTabIndex = self.tabsList.index(self.sender())
@@ -218,12 +257,13 @@ class MainWindow(QtGui.QWidget):
             self.tabsList[newTabIndex].setProperty("active", True)
             self.tabsList[newTabIndex].updateStyle()
             self.activeTabIndex = newTabIndex
-    
-    def enableNext(self):
-        newTabIndex = self.tabsList.index(self.sender()) + 1
-        if newTabIndex < len(self.tabsList):
-            self.tabsList[newTabIndex].setEnabled(True)            
-                
+            
+    def onFileLoad(self):
+        self.calibrationWidget.setEnabled(True)
+        self.rejectionWidget.setEnabled(True)
+        self.roiWidget.setEnabled(True)
+        self.plotWidget.setData(self.loadFileWidget.data100pix)       
+                  
             
 app = QtGui.QApplication(sys.argv)
 main = MainWindow()
