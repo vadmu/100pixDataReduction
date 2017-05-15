@@ -102,7 +102,7 @@ class LoadFileWidget(coolWidget):
             self.lineScan.setValue(0)
             
     def searchDataPaths(self):
-        fname = self.lineEditFile.text()
+        fname = str(self.lineEditFile.text())
         if os.path.exists(fname):
             if fname[-4:] == '.nxs':
                 f = h5py.File(fname, "r")
@@ -113,11 +113,10 @@ class LoadFileWidget(coolWidget):
                         
                 if self.scansList:
                     scan = [i for i in f.keys() if i[:4] == 'scan'][self.lastScanIndex%(len(self.scansList))]
-                    print scan
                     self.lineScan.setValue(self.scansList[self.lastScanIndex%(len(self.scansList))])
-                    self.data100pix = self.getDataByPath(f[scan], self.line100pix.text())
-                    self.dataEnergy = self.getDataByPath(f[scan], self.lineEnergy.text())
-                    self.dataI0 = self.getDataByPath(f[scan], self.lineI0.text())
+                    self.data100pix = self.getDataByPath(f[scan], str(self.line100pix.text()))
+                    self.dataEnergy = self.getDataByPath(f[scan], str(self.lineEnergy.text()))
+                    self.dataI0 = self.getDataByPath(f[scan], str(self.lineI0.text()))
                     self.fileLoaded.emit()
                     print fname, "- scan %d"%self.lineScan.value(), "loaded"
                 
