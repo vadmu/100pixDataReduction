@@ -11,18 +11,18 @@ from pylab import *
 import math
 from scipy import interpolate
 
-## Finds peak positions based on parameters peak_nr (number of peaks), md (minimum distance between peaks), th(threshold of noise, 1:max, 0:min), cut (offset in the spectra):
+#finds peak positions based on parameters peak_nr (number of peaks), md (minimum distance between peaks), th(threshold of noise, 1:max, 0:min), cut (offset in the spectra)
 def findPeaks(spectrum, peak_nr, md, th,cut):
 	spectrum_norm=spectrum.astype(float)/max(spectrum.astype(float))*10000
 	indexes= peakutils.indexes(spectrum_norm[cut:-1], thres=th, min_dist=md)
 	I=np.zeros(peak_nr+1,dtype=np.int)
 	I[1:peak_nr+1]=indexes[-peak_nr:]+cut
 	return I
-## Finds linear relation between the peak position in every pixel compared to a reference pixel:
+#finds linear relation between the peak position in every pixel compared to a reference pixel
 def relatePix(I,IR):
 	m,b=polyfit(I, IR, 1)
 	return m,b
-## Use the relation above to interpolate and align the pixels:
+#use the relation above to interpolate and align the pixels
 def align(pix, spectrum, num_channels, m, b):
 	if m!= 0. or b !=0.:
 		x=np.arange(0,num_channels)

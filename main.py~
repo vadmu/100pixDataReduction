@@ -343,7 +343,7 @@ class Plot2dWidget(QtGui.QWidget):
 			m,b =0,0
 		## Alignes the spectra:
 		self.dataAlinged[self.indexEnergyCurrent][pix]=align(pix, spectrum, 2048,m,b)
-	print "Spectra at the energy index "+ str(self.indexEnergyCurrent+1)+" aligned!"
+	print "Spectra at the energy index "+ str(self.indexEnergyCurrent)+" aligned!"
 
 ####################################################################################################
 											
