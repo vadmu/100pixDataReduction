@@ -198,12 +198,19 @@ class CalibrationWidget(coolWidget):
         
 
         
-class RejectionWidget(coolWidget):
+class RejectionWidget(coolWidget): 
+    sigRejectOut = QtCore.pyqtSignal()
     def __init__(self):
         coolWidget.__init__(self)
-        self.layout = QtGui.QGridLayout()
-        self.layout.addWidget(QtGui.QPushButton("Reject Outliers"), 0, 0)
-        self.layout.addWidget(QtGui.QLabel("?"), 0, 1)
+
+	self.outliersbutton = QtGui.QPushButton("Reject outliers")
+	self.outliersbutton.clicked.connect(self.sigRejectOut)        
+
+	self.layout = QtGui.QGridLayout()
+	self.layout.addWidget(self.outliersbutton, 2, 0)
+        #self.layout = QtGui.QGridLayout()
+        #self.layout.addWidget(QtGui.QPushButton("Reject Outliers"), 0, 0)
+        #self.layout.addWidget(QtGui.QLabel("?"), 0, 1)
         self.setLayout(self.layout)  
 
         
@@ -294,10 +301,16 @@ class Plot2dWidget(QtGui.QWidget):
             self.img.setImage(self.data[index - 1].T, autoLevels=False, levels = [self.minLevel, self.maxLevel])
             self.indexEnergyCurrent = index - 1
         else:
-            self.img.setImage(self.dataAlinged[index - 1].T, autoLevels=False, levels = [self.minLevel, self.maxLevel])
+	#if self.showAligned:
+	    self.img.setImage(self.dataAlinged[index - 1].T, autoLevels=False, levels = [self.minLevel, self.maxLevel])
             self.indexEnergyCurrent = index - 1
+		#else:
+		#	self.img.setImage(self.dataAlinged[index - 1].T, autoLevels=False, levels = [self.minLevel, self.maxLevel])
+            	#	self.indexEnergyCurrent = index - 1
 #        self.histWidget.setImageItem(self.img)
 #        self.histWidget.item.imageChanged()
+   
+
 
     def changeLevels(self):
         self.minLevel, self.maxLevel = self.histWidget.item.getLevels()
@@ -306,11 +319,6 @@ class Plot2dWidget(QtGui.QWidget):
     def alingPeaks(self):
         snr = self.sender().value
         self.peakind = []
-#        self.progress = QtGui.QProgressDialog("Alinging Peaks", "Cancel", 0, len(self.pixels), self)
-#        self.progress.setWindowTitle(" ")
-#        self.progress.setMinimumSize(400, 100)
-#        self.progress.setWindowModality(QtCore.Qt.WindowModal)
-        #print self.data[0][0]	
 ##################################################################################################
 #ligia's procedure:
 	
@@ -318,7 +326,7 @@ class Plot2dWidget(QtGui.QWidget):
 	cut=0 #cuting point in channels (offset in the spectra)
 	peak_nr=2 #number of peaks
 	md=30 #minimum distance between peaks
-	th=0.2 #threshold of noise, 1:max, 0:min
+	th=0.25 #threshold of noise, 1:max, 0:min
 
 	## Finds first pixel with non-zero counts:
 	index=0
@@ -328,9 +336,13 @@ class Plot2dWidget(QtGui.QWidget):
 		if suma>0:
 			break
 	## Pixel with non-zero counts as reference spectrum:
+	print "reference pixel "+str(index-1)
 	spectrum_ref=self.data[self.indexEnergyCurrent][index-1]
 	#find peaks in the reference spectrum:
 	IR=findPeaks(spectrum_ref, peak_nr, md, th,cut)
+	
+	self.m=np.zeros(100)
+	self.b=np.zeros(100)
 	## Finds peaks in each spectrum and relates the peak positions to the reference spectrum:
         for pix in self.pixels:
 		spectrum = self.data[self.indexEnergyCurrent][pix]
@@ -338,18 +350,26 @@ class Plot2dWidget(QtGui.QWidget):
 	        if suma>0:
 			I=findPeaks(spectrum, peak_nr, md, th,cut)
 			if IR.shape==I.shape:
-				m,b=relatePix(I,IR)
-	        else:
-			m,b =0,0
+				self.m[pix],self.b[pix]=relatePix(I,IR)
+	        #else:
+		#	m,b =0,0
 		## Alignes the spectra:
-		self.dataAlinged[self.indexEnergyCurrent][pix]=align(pix, spectrum, 2048,m,b)
-	print "Spectra at the energy index "+ str(self.indexEnergyCurrent)+" aligned!"
-
+		self.dataAlinged[self.indexEnergyCurrent][pix]=align(pix, spectrum, 2048,self.m,self.b)
+	print "Spectra at the energy index "+ str(self.indexEnergyCurrent+1)+" aligned!"
+        self.showRaw = False
+        self.setImage(self.indexEnergyCurrent + 1)
 ####################################################################################################
 											
+
+#Aleksandr's procedure:
+
+#        self.progress = QtGui.QProgressDialog("Alinging Peaks", "Cancel", 0, len(self.pixels), self)
+#        self.progress.setWindowTitle(" ")
+#        self.progress.setMinimumSize(400, 100)
+#        self.progress.setWindowModality(QtCore.Qt.WindowModal)
+        #print self.data[0][0]
 #            self.progress.setValue(pix)
 #            if self.progress.wasCanceled(): break
-#Aleksandr's procedure:
 #	for pix in self.pixels:									
 #		spectrum = self.data[self.indexEnergyCurrent][pix]
 #		if sum(spectrum) > 0:
@@ -363,36 +383,44 @@ class Plot2dWidget(QtGui.QWidget):
 #                	self.peakind.append(0)
                 
         #self.progress.setValue(len(self.pixels))
-        self.showRaw = False
-        self.setImage(self.indexEnergyCurrent + 1)
+#        self.showRaw = False
+#        self.setImage(self.indexEnergyCurrent + 1)
 
     def alingAll(self):
+		
+	# Align all spectra based on the saved parameters m and b for each pixel
 	for ei in range(len(self.energy)):	
-		cut=900 #cuting point in channels
-		#find first pixels with non-zero counts
-		index=0
-   		for pix in self.pixels:         
-			suma=sum(self.data[self.indexEnergyCurrent][pix], axis=0)
-			index=index+1
-			if suma>0:
-				break
-		#pixel with non-zero counts as reference
-		spectrum_ref=self.data[self.indexEnergyCurrent][index-1]
-		IR=findPeaks(spectrum_ref, cut)
-
 		for pix in self.pixels:
-			spectrum = self.data[self.indexEnergyCurrent][pix]
-			suma=sum(spectrum, axis=0)
-			if suma>10:
-				I=findPeaks(spectrum, cut)
-				m,b=relatePix(I,IR)
-			else:
-				m,b =0,0
-		self.dataAlinged[ei][pix]=align(pix, spectrum, 2048,m,b)
+			spectrum = self.data[ei][pix]
+			self.dataAlinged[ei][pix]=align(pix, spectrum, 2048,self.m,self.b)
+		print "Spectra at the energy index "+ str(ei+1)+" aligned!"
 	self.showRaw = False
 	self.setImage(self.indexEnergyCurrent + 1)    
 	print "ok"
 
+    def rejectOut(self):
+	sigma=7
+	cut=700
+	ei=150
+	mean_spectrum_no=np.zeros((len(self.energy),2048))
+	for ei in range(len(self.energy)):
+		suma=sum(self.dataAlinged[ei][:,], axis=1)
+		nonzeroDataAligned=self.dataAlinged[ei][suma>0,]
+		nonzero_pix=nonzeroDataAligned.shape[0]
+
+		#mean_spectrum=np.mean(self.dataAlinged[0][:,], axis=0)
+		mean_spectrum=np.mean(nonzeroDataAligned, axis=0)
+		shot_noise=sqrt(mean_spectrum)
+		goodpix=np.zeros(nonzero_pix, dtype=np.int8)
+		for pix in range(0, nonzero_pix):
+			diff=abs(self.dataAlinged[ei][pix,]-mean_spectrum)
+			goodpix[pix]=sum(diff[cut:-1]>sigma*shot_noise[cut:-1])==0
+		print sum(goodpix)
+		nonOutliersData=nonzeroDataAligned[goodpix.astype(bool),:]
+		mean_spectrum_no[ei,:]=np.mean(nonOutliersData, axis=0)
+	print mean_spectrum_no.shape
+	#self.showRaw = False
+	#self.setImage(self.indexEnergyCurrent + 1)    
 
 
 
@@ -445,7 +473,8 @@ class MainWindow(QtGui.QWidget):
         self.loadFileWidget.sigFileLoaded.connect(self.onFileLoad)
         self.calibrationWidget.sigAlingPeaks.connect(self.plotWidget.alingPeaks)
         self.calibrationWidget.sigAlingAll.connect(self.plotWidget.alingAll)
-        
+        self.rejectionWidget.sigRejectOut.connect(self.plotWidget.rejectOut)
+
         self.plotWidget.setSizePolicy(QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum))
         for tab in self.tabsList:
             tab.setMinimumWidth(500)

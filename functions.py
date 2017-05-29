@@ -24,9 +24,9 @@ def relatePix(I,IR):
 	return m,b
 ## Use the relation above to interpolate and align the pixels:
 def align(pix, spectrum, num_channels, m, b):
-	if m!= 0. or b !=0.:
+	if m[pix]!= 0. or b[pix]!=0.:
 		x=np.arange(0,num_channels)
-		y=(m*x+b).astype(int)
+		y=(m[pix]*x+b[pix]).astype(int)
 		data_interp=np.interp(x, y, spectrum)
 	else:
 		data_interp=np.zeros((num_channels), dtype=np.int)
