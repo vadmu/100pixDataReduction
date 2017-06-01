@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-
+from __future__ import division
 import os, sys
 from PyQt4 import QtGui, QtCore
 import pyqtgraph as pg
@@ -42,8 +42,12 @@ class coolWidget(QtGui.QGroupBox):
 
 class LoadFileWidget(coolWidget):
     sigFileLoaded = QtCore.pyqtSignal()
-    def __init__(self):
+    def __init__(self):     
+
+
         coolWidget.__init__(self)
+	
+
         self.openFileButton = QtGui.QPushButton("Open File")         
         self.lineEditFile = QtGui.QLineEdit()
         self.lineScan = QtGui.QSpinBox()
@@ -62,6 +66,7 @@ class LoadFileWidget(coolWidget):
         self.layout.addWidget(self.line100pix, 2, 1)
         self.layout.addWidget(self.lineEnergy, 3, 1)
         self.layout.addWidget(self.lineI0, 4, 1)
+
         self.setLayout(self.layout)  
         self.setEnabled(True)
         self.setProperty("active", True)
@@ -145,20 +150,33 @@ class CalibrationWidget(coolWidget):
     sigAlingAll = QtCore.pyqtSignal()
     def __init__(self):
         coolWidget.__init__(self)
-        self.minV = 0.01
-        self.maxV = 50.
+        self.minV = 0.
+        self.maxV = 1.
         self.step = 0.01
-        self.value = 5.00
+        self.th = 0.25
+	self.cut=0.
+	self.md=30.
+	self.peak_nr=2.
+	#self.value=1
+
+        #self.progressBar = QtGui.QProgressBar()
+        #self.progressBar.setRange(1, 322)
+        #self.progressBar.setValue(self.value)
+	#self.progressBar.show()
         
         self.openFileButton = QtGui.QPushButton("Open Calibration")         
         self.lineEditFile = QtGui.QLineEdit()
+	self.lineEditCut = QtGui.QLineEdit(str(self.cut))
+	#self.lineEditNoise = QtGui.QLineEdit("0.25")
+	self.lineEditMD = QtGui.QLineEdit(str(self.md))
+	self.lineEditNP = QtGui.QLineEdit(str(self.peak_nr))
         self.slider = QtGui.QSlider()
         self.slider.setOrientation(QtCore.Qt.Horizontal)
         self.slider.setMinimum(round(self.minV/self.step))
         self.slider.setMaximum(round(self.maxV/self.step))
-        self.lineEdit = QtGui.QLineEdit(str(self.value))
-        self.slider.setValue(self.value/self.step)
-        self.lineEdit.setValidator(QtGui.QDoubleValidator())                
+        self.lineEdit = QtGui.QLineEdit(str(self.th))
+        self.slider.setValue(self.th/self.step)
+        #self.lineEdit.setValidator(QtGui.QDoubleValidator())                
         self.peaksButton = QtGui.QPushButton("Aling Peaks")
         self.alignAllButton = QtGui.QPushButton("Aling All")
         self.peaksButton.clicked.connect(self.sigAlingPeaks)
@@ -167,52 +185,121 @@ class CalibrationWidget(coolWidget):
         self.layout = QtGui.QGridLayout()
         self.layout.addWidget(self.openFileButton, 0, 0)
         self.layout.addWidget(self.lineEditFile, 0, 1)
-        self.layout.addWidget(QtGui.QLabel("Noise Level"), 1, 0)
-        self.layout.addWidget(self.lineEdit, 1, 1)
-        self.layout.addWidget(self.slider, 2, 1)
-        self.layout.addWidget(self.peaksButton, 2, 0)     
-        self.layout.addWidget(self.alignAllButton, 3, 0)  
+        #self.layout.addWidget(QtGui.QLabel("Noise Level"), 1, 0)
+        #self.layout.addWidget(self.lineEdit, 1, 1)
+        #self.layout.addWidget(self.slider, 2, 1)
+	self.layout.addWidget(QtGui.QLabel("Offset:"), 1, 0)
+	self.layout.addWidget(self.lineEditCut, 1, 1)
+	self.layout.addWidget(QtGui.QLabel("Noise Threshold:"), 2, 0)
+	#self.layout.addWidget(self.lineEditNoise, 0, 1)
+	self.layout.addWidget(self.lineEdit, 2, 1)
+	self.layout.addWidget(self.slider, 2, 2)
+	self.layout.addWidget(QtGui.QLabel("Minimum Distance:"), 3, 0)
+	self.layout.addWidget(self.lineEditMD, 3, 1)
+	self.layout.addWidget(QtGui.QLabel("# of Peaks:"), 4, 0)
+	self.layout.addWidget(self.lineEditNP, 4, 1)
+        self.layout.addWidget(self.peaksButton, 3, 2)     
+        self.layout.addWidget(self.alignAllButton, 4, 2) 	
+	#self.layout.addWidget(self.progressBar, 0, 2) 
         self.setLayout(self.layout) 
         
         self.openFileButton.clicked.connect(self.openCalibrationFile)
-        self.lineEdit.editingFinished.connect(self.lineEditValueChanged)
+	
+        self.lineEditCut.editingFinished.connect(self.lineEditCutValueChanged)
+	self.lineEditMD.editingFinished.connect(self.lineEditMDValueChanged)
+	self.lineEditNP.editingFinished.connect(self.lineEditNPValueChanged)
         self.slider.valueChanged.connect(self.sliderValueChanged)
-        
+        self.lineEdit.editingFinished.connect(self.lineEditValueChanged)
+	#self.progressBar.valueChanged.connect(self.progressBarValueChanged)
+
     def mousePressEvent(self,event):
         if self.isEnabled():
             self.setProperty("active", True)
             self.sigSetActive.emit()
             
     def lineEditValueChanged(self):
-        self.value = float(str(self.lineEdit.text()))
-        self.slider.setValue(round(self.value/self.step))
+        self.th = float(str(self.lineEdit.text()))
+        self.slider.setValue(round(self.th/self.step))
+
+    def lineEditCutValueChanged(self):
+        self.cut = float(str(self.lineEditCut.text()))
+
+    def lineEditMDValueChanged(self):
+        self.md = float(str(self.lineEditMD.text()))
+
+    def lineEditNPValueChanged(self):
+        self.peak_nr = float(str(self.lineEditNP.text()))
+
         
     def sliderValueChanged(self, v):
-        self.value = v*self.step
-        self.lineEdit.setText(str(self.value))
+        self.th = v*self.step
+        self.lineEdit.setText(str(self.th))
         
     def openCalibrationFile(self):
         fname = QtGui.QFileDialog.getOpenFileName(self, 'Open Calibration File', '/home')
         self.lineEditFile.setText(fname) 
         
-        
+    #def progressBarValueChanged(self, v):
+        #self.value = v*self.step1
+        #self.lineEdit.setText(str(self.th))      
 
         
 class RejectionWidget(coolWidget): 
     sigRejectOut = QtCore.pyqtSignal()
     def __init__(self):
         coolWidget.__init__(self)
+	self.r1=700
+	self.r2=1000
+	self.sigma=1
+	self.max_counts=10
+	self.ei=100
+
+	self.lineEditR1 = QtGui.QLineEdit(str(self.r1))
+	self.lineEditR2 = QtGui.QLineEdit(str(self.r2))
+	self.lineEditSigma = QtGui.QLineEdit(str(self.sigma))
+	self.lineEditMC = QtGui.QLineEdit(str(self.max_counts))
+	self.lineEditEi = QtGui.QLineEdit(str(self.ei))
 
 	self.outliersbutton = QtGui.QPushButton("Reject outliers")
 	self.outliersbutton.clicked.connect(self.sigRejectOut)        
 
 	self.layout = QtGui.QGridLayout()
-	self.layout.addWidget(self.outliersbutton, 2, 0)
+	self.layout.addWidget(QtGui.QLabel("Region:"), 0, 0)
+	self.layout.addWidget(self.lineEditR1, 0, 1)
+	self.layout.addWidget(self.lineEditR2, 0, 2)
+	self.layout.addWidget(QtGui.QLabel("Sigma:"), 1, 0)
+	self.layout.addWidget(self.lineEditSigma, 1, 1)
+	self.layout.addWidget(QtGui.QLabel("Maximum # of counts:"), 2, 0)
+	self.layout.addWidget(self.lineEditMC, 2, 1)
+	self.layout.addWidget(QtGui.QLabel("Incident energy:"), 3, 0)
+	self.layout.addWidget(self.lineEditEi, 3, 1)
+	self.layout.addWidget(self.outliersbutton, 3, 2)
         #self.layout = QtGui.QGridLayout()
         #self.layout.addWidget(QtGui.QPushButton("Reject Outliers"), 0, 0)
         #self.layout.addWidget(QtGui.QLabel("?"), 0, 1)
         self.setLayout(self.layout)  
 
+	self.lineEditR1.editingFinished.connect(self.lineEditR1ValueChanged)
+	self.lineEditR2.editingFinished.connect(self.lineEditR2ValueChanged)
+	self.lineEditSigma.editingFinished.connect(self.lineEditSigmaValueChanged)
+	self.lineEditMC.editingFinished.connect(self.lineEditMCValueChanged)
+	self.lineEditEi.editingFinished.connect(self.lineEditEiValueChanged)
+
+
+    def lineEditR1ValueChanged(self):
+        self.r1 = float(str(self.lineEditR1.text()))
+
+    def lineEditR2ValueChanged(self):
+        self.r2 = float(str(self.lineEditR2.text()))
+
+    def lineEditSigmaValueChanged(self):
+        self.sigma = float(str(self.lineEditSigma.text()))
+
+    def lineEditMCValueChanged(self):
+        self.max_counts = float(str(self.lineEditMC.text()))
+
+    def lineEditEiValueChanged(self):
+        self.ei = float(str(self.lineEditEi.text()))
         
 class ROIWidget(coolWidget):
     def __init__(self):
@@ -301,10 +388,12 @@ class Plot2dWidget(QtGui.QWidget):
             self.img.setImage(self.data[index - 1].T, autoLevels=False, levels = [self.minLevel, self.maxLevel])
             self.indexEnergyCurrent = index - 1
         else:
-	#if self.showAligned:
-	    self.img.setImage(self.dataAlinged[index - 1].T, autoLevels=False, levels = [self.minLevel, self.maxLevel])
-            self.indexEnergyCurrent = index - 1
-		#else:
+	    if self.showAligned:
+	        self.img.setImage(self.dataAlinged[index - 1].T, autoLevels=False, levels = [self.minLevel, self.maxLevel])
+                self.indexEnergyCurrent = index - 1
+	    else:
+		self.img.setImage(self.mean_spectrum_no.T, autoLevels=False, levels = [self.minLevel, self.maxLevel])
+                #self.indexEnergyCurrent = index - 1
 		#	self.img.setImage(self.dataAlinged[index - 1].T, autoLevels=False, levels = [self.minLevel, self.maxLevel])
 		#	self.img.setImage(self.mean_spectrum_no[index - 1,:].T, autoLevels=False, levels = [self.minLevel, self.maxLevel])
             	#	self.indexEnergyCurrent = index - 1
@@ -318,17 +407,17 @@ class Plot2dWidget(QtGui.QWidget):
         self.img.setLevels([self.minLevel, self.maxLevel])
         
     def alingPeaks(self):
-        snr = self.sender().value
+        #snr = self.sender().value
         self.peakind = []
 ##################################################################################################
 #ligia's procedure:
 	
 	## Parameters:
-	cut=0 #cuting point in channels (offset in the spectra)
-	peak_nr=2 #number of peaks
-	md=30 #minimum distance between peaks
-	th=0.25 #threshold of noise, 1:max, 0:min
-
+	cut=self.sender().cut #0 #cuting point in channels (offset in the spectra)
+	peak_nr=self.sender().peak_nr #2 #number of peaks
+	md=self.sender().md #30 #minimum distance between peaks
+	th=self.sender().th #0.25 #threshold of noise, 1:max, 0:min
+	print peak_nr, md, th, cut
 	## Finds first pixel with non-zero counts:
 	index=0
    	for pix in self.pixels:         
@@ -340,7 +429,7 @@ class Plot2dWidget(QtGui.QWidget):
 	print "reference pixel "+str(index-1)
 	spectrum_ref=self.data[self.indexEnergyCurrent][index-1]
 	#find peaks in the reference spectrum:
-	IR=findPeaks(spectrum_ref, peak_nr, md, th,cut)
+	IR=findPeaks(spectrum_ref, peak_nr, md, th, cut)
 	
 	self.m=np.zeros(100)
 	self.b=np.zeros(100)
@@ -349,7 +438,7 @@ class Plot2dWidget(QtGui.QWidget):
 		spectrum = self.data[self.indexEnergyCurrent][pix]
 		suma=sum(spectrum, axis=0)
 	        if suma>0:
-			I=findPeaks(spectrum, peak_nr, md, th,cut)
+			I=findPeaks(spectrum, peak_nr, md, th, cut)
 			if IR.shape==I.shape:
 				self.m[pix],self.b[pix]=relatePix(I,IR)
 	        #else:
@@ -358,6 +447,7 @@ class Plot2dWidget(QtGui.QWidget):
 		self.dataAlinged[self.indexEnergyCurrent][pix]=align(pix, spectrum, 2048,self.m,self.b)
 	print "Spectra at the energy index "+ str(self.indexEnergyCurrent+1)+" aligned!"
         self.showRaw = False
+	self.showAligned= True
         self.setImage(self.indexEnergyCurrent + 1)
 ####################################################################################################
 											
@@ -386,43 +476,70 @@ class Plot2dWidget(QtGui.QWidget):
         #self.progress.setValue(len(self.pixels))
 #        self.showRaw = False
 #        self.setImage(self.indexEnergyCurrent + 1)
+####################################################################################################
 
     def alingAll(self):
-		
+
 	# Align all spectra based on the saved parameters m and b for each pixel
-	for ei in range(len(self.energy)):	
+	for ei in range(len(self.energy)):
 		for pix in self.pixels:
 			spectrum = self.data[ei][pix]
 			self.dataAlinged[ei][pix]=align(pix, spectrum, 2048,self.m,self.b)
 		print "Spectra at the energy index "+ str(ei+1)+" aligned!"
 	self.showRaw = False
+	self.showAligned= True
 	self.setImage(self.indexEnergyCurrent + 1)    
 	print "ok"
-
+####################################################################################################
     def rejectOut(self):
-	sigma=7
-	cut=700
-	ei=150
-	self.mean_spectrum_no=np.zeros((len(self.energy),2048))
-	for ei in range(len(self.energy)):
-		suma=sum(self.dataAlinged[ei][:,], axis=1)
-		nonzeroDataAligned=self.dataAlinged[ei][suma>0,]
-		nonzero_pix=nonzeroDataAligned.shape[0]
+	## Parameters:
+	r1=self.sender().r1 #initial point in the region
+	r2=self.sender().r2 #final point in the region
+	sigma=self.sender().sigma #sigma of shot noise
+	max_counts=self.sender().max_counts #maximum number of counts as a threshold of good pixel
+	ei=self.sender().ei #incident energy
 
-		#mean_spectrum=np.mean(self.dataAlinged[0][:,], axis=0)
-		mean_spectrum=np.mean(nonzeroDataAligned, axis=0)
-		shot_noise=sqrt(mean_spectrum)
-		goodpix=np.zeros(nonzero_pix, dtype=np.int8)
-		for pix in range(0, nonzero_pix):
-			diff=abs(self.dataAlinged[ei][pix,]-mean_spectrum)
-			goodpix[pix]=sum(diff[cut:-1]>sigma*shot_noise[cut:-1])==0
-		print "Number of good pixels: "+str(sum(goodpix))
-		nonOutliersData=nonzeroDataAligned[goodpix.astype(bool),:]
-		self.mean_spectrum_no[ei,:]=np.mean(nonOutliersData, axis=0)
-	#print mean_spectrum_no.shape
-	#self.showRaw = False
-	#self.setImage(self.indexEnergyCurrent + 1)    
+	## Non zero pixels:
+	suma=sum(self.dataAlinged[ei][:,], axis=1)
+	nonzeroDataAligned=self.dataAlinged[ei][suma>max_counts,]
+	nonzero_pix=nonzeroDataAligned.shape[0]
+	print "# of non-zero pixels: "+str(nonzero_pix)
 
+	## Normalized spectra:
+	max_pix=self.dataAlinged[ei][:,].max(1) #maximum at eaxh pixel
+	data_norm=(self.dataAlinged[ei][:].T/max_pix).T # normalized spectra (n,m)
+	data_norm[np.isnan(data_norm)] = 0 #gets rid of Nan due to divisions by zero (pixels with zero counts)
+
+	## Reject outliers:
+	mean_spectrum=np.mean(data_norm, axis=0)
+	shot_noise=sqrt(mean_spectrum) 
+
+	goodpix=np.ones(100, dtype=np.int8) # initialize pixels as good pixels (ones)
+
+	plt.figure(1)
+	for pix in self.pixels:
+		if sum(self.dataAlinged[ei][pix,])>max_counts:
+			diff=abs(data_norm[pix,]-mean_spectrum) #difference between spectrum and mean spectrum
+			f=plt.subplot(10,10,pix)
+			plt.plot(mean_spectrum[r1:r2], 'r')
+			plt.plot(data_norm[pix,r1:r2], 'b')
+			plt.plot(diff[r1:r2], 'g')
+			plt.plot(sigma*shot_noise[r1:r2], 'm')
+			plt.xticks([], [])
+			plt.yticks([], [])
+			plt.title("pix: "+str(pix))
+			## If the difference is bigger than the shot noise pixel is turned off (zero)
+			if sum(diff[r1:r2]>sigma*shot_noise[r1:r2])>0: 
+				f.patch.set_facecolor('gray')
+				goodpix[pix]=0.
+		else:
+			diff=np.zeros(2048)
+			goodpix[pix]=0.
+		
+	plt.show()
+
+	print "Number of good pixels: "+str(sum(goodpix)) 
+####################################################################################################
 
 
 #	if self.peakind:
